@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TECHTOWN | Neon Fix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=Rajdhani:wght@500;700&display=swap');
+        body { background: #050112; color: #fff; font-family: 'Rajdhani', sans-serif; min-height: 100vh; overflow-x: hidden; }
+        .neon-border-cyan { border: 2px solid #00f2ff; box-shadow: 0 0 15px #00f2ff; }
+        .neon-border-magenta { border: 2px solid #ff00ff; box-shadow: 0 0 15px #ff00ff; }
+        .glass { background: rgba(10, 2, 30, 0.85); backdrop-filter: blur(15px); border-radius: 20px; }
+        .btn-magenta { background: #ff00ff; box-shadow: 0 0 20px #ff00ff; font-family: 'Orbitron'; cursor: pointer; }
+        #chat-window { height: 160px; overflow-y: auto; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 12px; border: 1px solid #ff00ff33; }
+        video { border-radius: 15px; background: #000; object-fit: cover; width: 100%; height: 100%; }
+        .ctrl-btn { transition: 0.3s; padding: 10px; border-radius: 50%; border: 2px solid #00f2ff; color: #00f2ff; cursor: pointer; font-size: 10px; font-weight: bold; }
+        .off { border-color: #ff0000; color: #ff0000; background: rgba(255,0,0,0.1); }
+    </style>
+</head>
+<body class="flex flex-col items-center p-4">
+
+    <div id="auth-screen" class="w-full max-w-md mt-24">
+        <div class="glass p-10 text-center neon-border-cyan">
+            <h1 class="text-4xl font-black mb-1 italic" style="font-family: 'Orbitron';"><span class="text-[#00f2ff]">TECH</span><span class="text-[#ff00ff]">TOWN</span></h1>
+            <p class="text-[10px] tracking-[0.4em] text-[#00f2ff] font-bold mb-8 uppercase">Neon Protocol Activated</p>
+            <input type="text" id="username" placeholder="NAME..." class="w-full p-4 mb-4 rounded-lg bg-black border border-cyan-500/50 outline-none text-cyan-300 font-bold uppercase">
+            <input type="password" id="password" placeholder="PIN..." class="w-full p-4 mb-8 rounded-lg bg-black border border-magenta-500/50 outline-none text-magenta-300 font-bold">
+            <button onclick="loginUser()" class="w-full btn-magenta p-4 rounded-xl font-black text-white uppercase italic">Establish Link</button>
+        </div>
+    </div>
+
+    <div id="call-screen" class="hidden w-full max-w-6xl mt-4">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div class="lg:col-span-1 glass p-5 neon-border-magenta flex flex-col gap-4">
+                <div id="friend-list" class="space-y-2 flex-1 overflow-y-auto min-h-[100px]"></div>
+                <div id="chat-window"></div>
+                <div class="flex gap-2">
+                    <input type="text" id="msg-input" placeholder="Data..." class="flex-1 bg-black border border-cyan-900 rounded p-2 text-xs outline-none">
+                    <button onclick="sendMessage()" class="bg-cyan-600 px-3 rounded font-bold text-xs">SEND</button>
+                </div>
+            </div>
+
+            <div class="lg:col-span-3 flex flex-col gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 h-[400px]">
+                    <div class="relative neon-border-cyan rounded-2xl overflow-hidden"><video id="localVideo" autoplay muted playsinline></video></div>
+                    <div class="relative neon-border-magenta rounded-2xl overflow-hidden"><video id="remoteVideo" autoplay playsinline></video></div>
+                </div>
+                <div class="glass p-4 flex justify-center gap-8 self-center px-12 neon-border-cyan">
+                    <button id="mic-btn" onclick="toggleAudio()" class="ctrl-btn">MIC ON</button>
+                    <button onclick="location.reload()" class="btn-magenta p-4 rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-width="2" stroke-linecap="round"/></svg></button>
+                    <button id="cam-btn" onclick="toggleVideo()" class="ctrl-btn">CAM ON</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, where } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyBJsyYpakn99GGYpwjHIHVaMpBEa4SBntI", authDomain: "booming-premise-253521.firebaseapp.com", projectId: "booming-premise-253521", storageBucket: "booming-premise-253521.firebasestorage.app", messagingSenderId: "916001736696", appId: "1:916001736696:web:5638d8a66f918fa614b80d" };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        let peer, localStream, chatConn;
+
+        window.loginUser = async () => {
+            const user = document.getElementById('username').value.trim().toLowerCase();
+            const pass = document.getElementById('password').value.trim();
+            if (!user || !pass) return;
+
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('call-screen').classList.remove('hidden');
+
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+                document.getElementById('localVideo').srcObject = localStream;
+            } catch (e) { alert("Camera/Mic blocked!"); }
+
+            await setDoc(doc(db, "online_users", user), { name: user, room: pass });
+            peer = new Peer(user);
+
+            peer.on('call', call => {
+                call.answer(localStream);
+                call.on('stream', rs => { document.getElementById('remoteVideo').srcObject = rs; });
+            });
+
+            peer.on('connection', c => { chatConn = c; c.on('data', d => appendChat(d, 'peer')); });
+
+            onSnapshot(query(collection(db, "online_users"), where("room", "==", pass)), (snap) => {
+                const list = document.getElementById('friend-list'); list.innerHTML = "";
+                snap.forEach(d => { if (d.data().name !== user) {
+                    const div = document.createElement('div');
+                    div.className = "p-3 glass border-l-4 border-cyan-400 cursor-pointer text-xs font-bold uppercase hover:bg-cyan-500/10 transition-all";
+                    div.innerText = d.data().name;
+                    div.onclick = () => {
+                        // Call Video
+                        const call = peer.call(d.data().name, localStream);
+                        call.on('stream', rs => { document.getElementById('remoteVideo').srcObject = rs; });
+                        // Call Chat
+                        chatConn = peer.connect(d.data().name);
+                        chatConn.on('data', data => appendChat(data, 'peer'));
+                    };
+                    list.appendChild(div);
+                }});
+            });
+        };
+
+        window.sendMessage = () => {
+            const input = document.getElementById('msg-input');
+            if (chatConn && input.value) { chatConn.send(input.value); appendChat(input.value, 'me'); input.value = ""; }
+        };
+
+        function appendChat(m, s) {
+            const box = document.getElementById('chat-window');
+            box.innerHTML += `<div style="color:${s==='me'?'#00f2ff':'#ff00ff'}"><b>${s==='me'?'Me':'Peer'}:</b> ${m}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        window.toggleVideo = () => {
+            const t = localStream.getVideoTracks()[0]; t.enabled = !t.enabled;
+            document.getElementById('cam-btn').innerText = t.enabled ? "CAM ON" : "CAM OFF";
+            document.getElementById('cam-btn').classList.toggle('off', !t.enabled);
+        };
+
+        window.toggleAudio = () => {
+            const t = localStream.getAudioTracks()[0]; t.enabled = !t.enabled;
+            document.getElementById('mic-btn').innerText = t.enabled ? "MIC ON" : "MIC OFF";
+            document.getElementById('mic-btn').classList.toggle('off', !t.enabled);
+        };
+    </script>
+</body>
+</html>
