@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TECHTOWN | Neon Hyper-Drive</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&family=Rajdhani:wght@500;700&display=swap');
+        body { background-color: #050112; background-image: radial-gradient(circle at 50% 50%, #1a0b3c 0%, #050112 100%); color: #fff; font-family: 'Rajdhani', sans-serif; min-height: 100vh; overflow-x: hidden; }
+        .neon-border-cyan { border: 2px solid #00f2ff; box-shadow: 0 0 15px #00f2ff, inset 0 0 10px #00f2ff; }
+        .neon-border-magenta { border: 2px solid #ff00ff; box-shadow: 0 0 15px #ff00ff, inset 0 0 10px #ff00ff; }
+        .neon-text-cyan { color: #00f2ff; text-shadow: 0 0 10px #00f2ff; }
+        .neon-text-magenta { color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
+        .glass-container { background: rgba(10, 2, 30, 0.8); backdrop-filter: blur(15px); border-radius: 20px; }
+        .btn-magenta { background: #ff00ff; box-shadow: 0 0 20px #ff00ff; font-family: 'Orbitron', sans-serif; }
+        .status-online { width: 10px; height: 10px; background: #00ff00; border-radius: 50%; box-shadow: 0 0 10px #00ff00; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
+        #chat-window { height: 160px; overflow-y: auto; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 12px; border: 1px solid rgba(255,0,255,0.2); font-size: 14px; }
+        video { border-radius: 15px; background: #000; object-fit: cover; }
+        .ctrl-btn { transition: 0.3s; padding: 12px; border-radius: 50%; border: 2px solid; cursor: pointer; }
+        .off { border-color: #ff0000; color: #ff0000; background: rgba(255,0,0,0.1); }
+        .on { border-color: #00f2ff; color: #00f2ff; background: rgba(0,242,255,0.1); }
+    </style>
+</head>
+<body class="flex flex-col items-center p-4">
+
+    <div id="auth-screen" class="w-full max-w-md mt-24">
+        <div class="glass-container p-10 text-center neon-border-cyan">
+            <h1 class="text-5xl font-black mb-1 tracking-tighter italic" style="font-family: 'Orbitron';"><span class="neon-text-cyan">TECH</span><span class="neon-text-magenta">TOWN</span></h1>
+            <p class="text-[11px] tracking-[0.6em] neon-text-cyan font-bold mb-10 uppercase">Neon Protocol Activated</p>
+            <div class="space-y-6 text-left">
+                <input type="text" id="username" placeholder="NAME..." class="w-full p-4 rounded-lg bg-black/60 border border-cyan-500/50 outline-none text-cyan-300 font-bold uppercase tracking-widest">
+                <input type="password" id="password" placeholder="PIN..." class="w-full p-4 rounded-lg bg-black/60 border border-magenta-500/50 outline-none text-magenta-300 font-bold tracking-widest">
+                <button onclick="loginUser()" class="w-full btn-magenta p-5 rounded-xl font-black text-xl italic uppercase text-white">Initialize Link</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="call-screen" class="hidden w-full max-w-6xl mt-6">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div class="lg:col-span-1 glass-container p-6 h-fit lg:h-[600px] flex flex-col neon-border-magenta">
+                <div class="flex items-center gap-4 mb-6 pb-4 border-b border-magenta-500/30">
+                    <div id="avatar" class="w-12 h-12 bg-magenta-600 rounded-full flex items-center justify-center font-black shadow-[0_0_15px_#ff00ff]">U</div>
+                    <div><h2 id="display-name" class="font-bold text-lg neon-text-cyan uppercase">User</h2><span class="text-[10px] text-green-400 flex items-center gap-2 font-bold tracking-widest"><div class="status-online"></div> SECURE</span></div>
+                </div>
+                <div id="friend-list" class="space-y-3 mb-6 flex-1 overflow-y-auto pr-2"></div>
+                <div id="chat-window" class="mb-3"></div>
+                <div class="flex gap-2">
+                    <input type="text" id="msg-input" placeholder="Type..." class="flex-1 bg-black/60 border border-cyan-500/30 rounded p-2 text-xs outline-none focus:border-cyan-400">
+                    <button onclick="sendMessage()" class="bg-cyan-600 px-3 rounded font-bold text-xs">SEND</button>
+                </div>
+            </div>
+
+            <div class="lg:col-span-3 flex flex-col gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 h-[300px] md:h-[450px]">
+                    <div class="relative neon-border-cyan rounded-2xl overflow-hidden"><video id="localVideo" autoplay muted playsinline class="w-full h-full"></video></div>
+                    <div class="relative neon-border-magenta rounded-2xl overflow-hidden"><video id="remoteVideo" autoplay playsinline class="w-full h-full"></video></div>
+                </div>
+                <div class="glass-container p-6 flex justify-center gap-10 self-center px-16 neon-border-cyan">
+                    <button id="mic-btn" onclick="toggleAudio()" class="ctrl-btn on font-bold text-[10px]">MIC ON</button>
+                    <button onclick="location.reload()" class="btn-magenta p-5 rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                    <button id="cam-btn" onclick="toggleVideo()" class="ctrl-btn on font-bold text-[10px]">CAM ON</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, where } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyBJsyYpakn99GGYpwjHIHVaMpBEa4SBntI", authDomain: "booming-premise-253521.firebaseapp.com", projectId: "booming-premise-253521", storageBucket: "booming-premise-253521.firebasestorage.app", messagingSenderId: "916001736696", appId: "1:916001736696:web:5638d8a66f918fa614b80d" };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        let peer, localStream, chatConn;
+
+        window.loginUser = async () => {
+            const user = document.getElementById('username').value.trim().toLowerCase();
+            const pass = document.getElementById('password').value.trim();
+            if (!user || !pass) return alert("Fill Identity & PIN!");
+
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('call-screen').classList.remove('hidden');
+            document.getElementById('display-name').innerText = user;
+            document.getElementById('avatar').innerText = user[0].toUpperCase();
+
+            localStream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+            document.getElementById('localVideo').srcObject = localStream;
+
+            await setDoc(doc(db, "online_users", user), { name: user, room: pass });
+            peer = new Peer(user);
+
+            peer.on('call', call => {
+                call.answer(localStream);
+                call.on('stream', rs => document.getElementById('remoteVideo').srcObject = rs);
+            });
+
+            peer.on('connection', c => { chatConn = c; c.on('data', d => appendChat(d, 'peer')); });
+
+            onSnapshot(query(collection(db, "online_users"), where("room", "==", pass)), (snap) => {
+                const list = document.getElementById('friend-list'); list.innerHTML = "";
+                snap.forEach(d => { if (d.data().name !== user) {
+                    const div = document.createElement('div');
+                    div.className = "p-3 glass-container hover:bg-cyan-500/20 cursor-pointer border-l-4 border-cyan-400 flex justify-between items-center";
+                    div.innerHTML = `<span class="font-bold text-cyan-50 uppercase text-xs">${d.data().name}</span> <span class="status-online"></span>`;
+                    div.onclick = () => { peer.call(d.data().name, localStream).on('stream', rs => document.getElementById('remoteVideo').srcObject = rs); chatConn = peer.connect(d.data().name); chatConn.on('data', d => appendChat(d, 'peer')); };
+                    list.appendChild(div);
+                }});
+            });
+        };
+
+        window.sendMessage = () => {
+            const input = document.getElementById('msg-input');
+            if (chatConn && input.value) { chatConn.send(input.value); appendChat(input.value, 'me'); input.value = ""; }
+        };
+
+        function appendChat(m, s) {
+            const box = document.getElementById('chat-window');
+            box.innerHTML += `<div style="color:${s==='me'?'#00f2ff':'#ff00ff'}"><b>${s==='me'?'Me':'Peer'}:</b> ${m}</div>`;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        window.toggleVideo = () => {
+            const t = localStream.getVideoTracks()[0]; t.enabled = !t.enabled;
+            document.getElementById('cam-btn').innerText = t.enabled ? "CAM ON" : "CAM OFF";
+            document.getElementById('cam-btn').className = `ctrl-btn ${t.enabled ? 'on' : 'off'}`;
+        };
+
+        window.toggleAudio = () => {
+            const t = localStream.getAudioTracks()[0]; t.enabled = !t.enabled;
+            document.getElementById('mic-btn').innerText = t.enabled ? "MIC ON" : "MIC OFF";
+            document.getElementById('mic-btn').className = `ctrl-btn ${t.enabled ? 'on' : 'off'}`;
+        };
+    </script>
+</body>
+</html>
